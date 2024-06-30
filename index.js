@@ -18,8 +18,8 @@ if(navigator.xr) {
 function onControllerUpdate(session, frame, refSpace) {
   return Array.from(session.inputSources).reduce((controllers, inputSource) => {
     if(inputSource.gripSpace) {
-      const pose = frame.getPost(inputSource.gripSpace, refSpace)
-      if(gripPose) {
+      const pose = frame.getPose(inputSource.gripSpace, refSpace)
+      if(pose) {
         return {...controllers, [inputSource.handedness]: {pose}}
       }
     }
