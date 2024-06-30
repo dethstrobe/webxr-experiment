@@ -1,0 +1,24 @@
+body {
+  background-color: rgb(100, 100, 100);
+}
+#header {
+  color: rgb(242, 245, 78);
+}
+#xr-button {
+  background-color: rgba(116, 181, 241, 0.4);
+  border: rgb(95, 145, 195) 2px solid;
+  color: white;
+  height: 50px;
+  min-width: 160px;
+}
+#main {
+  text-align: center;
+}
+canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: -1;
+}
