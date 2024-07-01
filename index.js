@@ -20,7 +20,7 @@ function onControllerUpdate(session, frame, refSpace) {
     if(inputSource.gripSpace) {
       const pose = frame.getPose(inputSource.gripSpace, refSpace)
       if(pose) {
-        return {...controllers, [inputSource.handedness]: {pose}}
+        return {...controllers, [inputSource.handedness]: {pose, gamepad: inputSource.gamepad}}
       }
     }
     return controllers
@@ -104,7 +104,7 @@ async function onSessionStarted(_session) {
   controllerMat.setModel(identityMatrix)
 
   _session.updateRenderState({baseLayer: new XRWebGLLayer(_session, cx)})
-  const refSpace = await _session.requestReferenceSpace('local-floor')
+  let refSpace = await _session.requestReferenceSpace('local-floor')
 
   _session.requestAnimationFrame(onSessionFrame)
 
@@ -116,6 +116,23 @@ async function onSessionStarted(_session) {
       const {baseLayer} = frame.session.renderState
 
       const controllers = onControllerUpdate(frame.session, frame, refSpace)
+
+      const matrix = controllers.left.pose.transform.matrix
+
+      const front = mulVecByMat(matrix, [0,0,-1,1])
+      const center = mulVecByMat(matrix, [0,0,0,1])
+
+      const xDir = -(front[0] - center[0])
+      const zDir = front[1] - center[1]
+
+      const l = Math.sqrt(xDir * xDir + zDir * zDir)
+      const normXDir = xDir / l
+      const normZDir = zDir / l
+
+      const xOffset = (controllers.left.gamepad.axes[3] * normXDir + controllers.left.gamepad.axes[2] * normZDir) * 0.1
+      const zOffset = (controllers.left.gamepad.axes[3] * normZDir + controllers.left.gamepad.axes[2] * normXDir) * 0.1
+
+      refSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({x: xOffset, y: 0, z: zOffset}))
 
       cx.bindFramebuffer(cx.FRAMEBUFFER, baseLayer.framebuffer)
       
@@ -134,22 +151,11 @@ async function onSessionStarted(_session) {
         cubeMat.setView(view.transform.inverse.matrix);
 
         renderer.draw(cubeMesh, cubeMat);
-        console.log(controllers)
         if(controllers.left) {
-          controllerMat.setProjection(view.projectionMatrix)
-          controllerMat.setView(view.transform.inverse.matrix)
-          controllerMat.setModel(controllers.left.pose.transform.matrix)
-
-          controllerMat.setColor([1,1,1,1])
-          renderer.draw(controllerMesh, controllerMat)
+          controllerAction(controllers.left, controllerMat, view, controllerMesh, controllerMat, renderer)
         }
         if(controllers.right) {
-          controllerMat.setProjection(view.projectionMatrix)
-          controllerMat.setView(view.transform.inverse.matrix)
-          controllerMat.setModel(controllers.right.pose.transform.matrix)
-
-          controllerMat.setColor([0,0,0,1])
-          renderer.draw(controllerMesh, controllerMat)
+          controllerAction(controllers.right, controllerMat, view, controllerMesh, controllerMat, renderer)
         }
       })
     }
@@ -158,4 +164,27 @@ async function onSessionStarted(_session) {
   function onSessionEnded() {
     xrSession = null
   }
+}
+
+function controllerAction(controller, controllerMat, view, controllerMesh, controllerMat, renderer) {
+  controllerMat.setProjection(view.projectionMatrix)
+  controllerMat.setView(view.transform.inverse.matrix)
+  controllerMat.setModel(controller.pose.transform.matrix)
+
+  const red = controller.gamepad.button[0].value // trigger
+  const green = controller.gamepad.button[1].value // grip?
+  const blue = controller.gamepad.button[4].value // x button?
+
+  controllerMat.setColor([red, green, blue, 1])
+  renderer.draw(controllerMesh, controllerMat)
+}
+
+// this function multiplies a 4d vector by a 4x4 matrix (it applies all the matrix operations to the vector)
+function mulVecByMat(m, v) {
+  return [
+    m[0] * v[0] + m[1] * v[1] + m[2] * v[2] + m[3] * v[3],
+    m[4] * v[0] + m[5] * v[1] + m[6] * v[2] + m[7] * v[3],
+    m[8] * v[0] + m[9] * v[1] + m[10] * v[2] + m[11] * v[3],
+    m[12] * v[0] + m[13] * v[1] + m[14] * v[2] + m[15] * v[3],
+  ]
 }
