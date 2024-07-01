@@ -74,7 +74,7 @@ async function onSessionStarted(_session) {
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 1.0, 0.0,
-    -2.0, 1.0, -5.0, 1.0
+    -2.0, 1.0, -10.0, 1.0
   ])
 
   const planeMesh = new ezgfx.Mesh(cx)
@@ -96,7 +96,7 @@ async function onSessionStarted(_session) {
   cubeMat.setColor([0.4, 0.3, 1, 1])
 
   const controllerMesh = new ezgfx.Mesh(cx)
-  controllerMesh.loadFromOBJ("/cube.obj")
+  controllerMesh.loadFromOBJ("/controller.obj")
 
   const controllerMat = new ezgfx.Material(null, cx)
   controllerMat.setProjection(identityMatrix)
