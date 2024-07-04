@@ -1,5 +1,132 @@
 import { ezgfx } from "./ezgfx.js";
 
+// Init audio stuff
+const audioContext = new AudioContext()
+const resonanceAudioScene = new ResonanceAudio(audioContext)
+resonanceAudioScene.output.connect(audioContext.destination)
+resonanceAudioScene.setRoomProperties({},{})
+
+let audioId = 0;
+
+class PlayableAudio {
+  constructor(url, [x,y,z], loop = false) {
+    this.id = ++audioId
+    this.url = url
+    this.posX = x
+    this.posY = y
+    this.posZ = z
+    this.loop = loop
+
+    this.isPlayable = true;
+		this.isPlaying = false;
+
+    this.onFinished = () => {}
+    this.onStarted = () => {}
+
+    this.source = resonanceAudioScene.createSource()
+    this.source.setPosition(x,y,z)
+
+    this.buffer = null
+    this.bufferSource = null
+
+    fetch(url)
+      .then((res) => res.arrayBuffer())
+      .then((buffer) => audioContext.decodeAudioData(buffer))
+      .then(decodedBuffer => {
+        this.buffer = decodedBuffer
+        this.genBufferSource()
+      })
+  }
+
+  genBufferSource() {
+    this.bufferSource = audioContext.createBufferSource()
+    this.bufferSource.loop = this.loop
+    this.bufferSource.connect(this.source.input)
+    this.bufferSource.buffer = this.buffer
+
+    this.bufferSource.onended = () => {
+      this.bufferSource.disconnect()
+      delete this.bufferSource
+
+      this.genBufferSource()
+
+      this.isPlayable = true
+      this.isPlaying = false
+      this.onFinished()
+
+      console.log(`Audio ${this.id} was stopped`)
+    }
+  }
+
+  play(from = 0) {
+    console.log(`audio ${this.id} attempt to play`)
+
+    if(this.isPlayable && !this.isPlaying) {
+      this.bufferSource.start(0, from)
+
+      console.log(`audio ${this.id} is playing`)
+
+      this.isPlaying = true
+
+      this.onStarted()
+    }
+  }
+
+  stop() {
+    console.log(`audio ${this.id} attempt to stop`)
+
+    if(this.isPlayable && this.isPlaying) {
+      this.isPlayable = false
+      this.bufferSource.stop(0)
+      console.log(`audio ${this.id} stopped`)
+    }
+  }
+
+  // set loop(loop) {
+  //   this.isLoop = loop
+  //   if(this.bufferSource)
+  //     this.bufferSource.loop = loop
+  // }
+  // get loop() {
+  //   return this.isLoop
+  // }
+
+  get duration() {
+    return this.buffer.duration
+  }
+
+  set position([x,y,z]) {
+    this.posX = x
+    this.posY = y
+    this.posZ = z
+
+    this.source.setPosition(x,y,z)
+  }
+
+  get position () {
+    return [this.posX, this.posY, this.posZ]
+  }
+
+  get playing() {
+    return this.isPlayable && this.isPlaying
+  }
+}
+
+const audio1 = new PlayableAudio("/irritating_noise.wav", [0.0, 0.0, 0.0], true);
+const playButton = document.getElementById("sound-button");
+
+audio1.onFinished = () => playButton.innerHTML = "Play sound"
+
+playButton.onclick = () => {
+  audioContext.resume()
+  if(audio1.playing) {
+    audio1.stop()
+    playButton.innerHTML = "Play sound"
+  } else {
+    audio1.play()
+    playButton.innerHTML = "Stop sound"
+  }
+}
 // Init VR stuff
 const xrBtn = document.getElementById('xr-button')
 if(navigator.xr) {
@@ -47,6 +174,7 @@ function initWebGL(attributes) {
 // VR Stuff
 let xrSession = null
 function enterVr() {
+  audioContext.resume()
   if(!xrSession){
     navigator.xr.requestSession('immersive-vr', {requiredFeatures: ["local-floor"]}).then(onSessionStarted)
   } else {
@@ -136,6 +264,8 @@ async function onSessionStarted(_session) {
     if(pose) {
       const {baseLayer} = frame.session.renderState
 
+      resonanceAudioScene.setListenerFromMatrix({ elements: pose.transform.matrix })
+
       const controllers = onControllerUpdate(frame.session, frame, refSpace)
 
       if(controllers.left) {
@@ -155,6 +285,20 @@ async function onSessionStarted(_session) {
         const zOffset = (controllers.left.gamepad.axes[3] * normZDir + controllers.left.gamepad.axes[2] * normXDir) * 0.1
   
         refSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({x: xOffset, y: 0, z: zOffset}))
+      }
+
+      if(controllers.left && controllers.right) {
+        if(controllers.right.gamepad.buttons[4].pressed) {
+          audio1.position = [
+            controllers.right.pos.transform.x,
+            controllers.right.pos.transform.y,
+            controllers.right.pos.transform.z,
+          ]
+          audio1.play()
+        }
+        if(controllers.left.gamepad.buttons[4].pressed) {
+          audio1.stop()
+        }
       }
 
       cx.bindFramebuffer(cx.FRAMEBUFFER, baseLayer.framebuffer)
