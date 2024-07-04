@@ -1,6 +1,6 @@
 import { ezgl } from "./ezgl.js";
 import { ezobj } from "./ezobj.js";
-let ezgfxGlobals = {}; // not for use by the user - it's just some global constants that are needed by our shaders 
+const ezgfxGlobals = {}; // not for use by the user - it's just some global constants that are needed by our shaders 
 
 export const ezgfx = {
 	Mesh: class {
@@ -46,9 +46,22 @@ export const ezgfx = {
 		}
 	},
 	Material: class {
-		constructor(customShader = null, gl) {
+		constructor(gl, customVertex = null, customTexCoord = null, customShader = null) {
 			this.shader = new ezgl.Shader(gl);
-			this.shader.join(ezgfxGlobals.vSS);
+			let vSS = null;
+
+			if(!customVertex && !customTexCoord) {
+				this.shader.join(ezgfxGlobals.vSS);
+			} else if(customVertex && customTexCoord) {
+				vSS = new ezgl.SubShader(gl.VERTEX_SHADER, ezgfxGlobals.vSSC0 + customVertex + "\n" + customTexCoord + ezgfxGlobals.vSSC1, gl);
+				this.shader.join(vSS);
+			} else if(!customVertex && customTexCoord) {
+				vSS = new ezgl.SubShader(gl.VERTEX_SHADER, ezgfxGlobals.vSSC0 + "vec4 vertex() { return u_Projection * u_View * u_Model * vec4(a_Position, 1.0); }\n" + customTexCoord + ezgfxGlobals.vSSC1, gl);
+				this.shader.join(vSS);
+			} else if(customVertex && !customTexCoord) {
+				vSS = new ezgl.SubShader(gl.VERTEX_SHADER, ezgfxGlobals.vSSC0 + customVertex + "\nvec2 texcoord() { return a_TexCoord; }" + ezgfxGlobals.vSSC1, gl);
+				this.shader.join(vSS);
+			}
 			if(!customShader) {
 				this.shader.join(ezgfxGlobals.fSS);
 				this.shader.link();
@@ -58,6 +71,10 @@ export const ezgfx = {
 				this.shader.join(fSS);
 				this.shader.link();
 				fSS.free();
+			}
+
+			if(vSS) {
+				vSS.free();
 			}
 
 			this.shader.bind();
@@ -118,7 +135,7 @@ export const ezgfx = {
 			ezgfxGlobals.fSSC1 = "\nvoid main() {\n\
 				o_Color = shader();\n\
 			}";
-			ezgfxGlobals.vSS = new ezgl.SubShader(gl.VERTEX_SHADER, "#version 300 es\n\
+			ezgfxGlobals.vSSC0 = "#version 300 es\n\
 			precision mediump float;\n\
 			\n\
 			layout(location = 0) in vec3 a_Position;\n\
@@ -129,13 +146,13 @@ export const ezgfx = {
 			uniform mat4 u_View;\n\
 			uniform mat4 u_Model;\n\
 			\n\
-			out vec2 v_TexCoord;\n\
-			\n\
-			void main() {\n\
-			gl_Position = u_Projection * u_View * u_Model * vec4(a_Position, 1.0);\n\
-				v_TexCoord = a_TexCoord;\n\
-				v_TexCoord.y = 1.0 - v_TexCoord.y;\n\
-			}", gl);
+			out vec2 v_TexCoord;\n";
+			ezgfxGlobals.vSSC1 = "\nvoid main() {\n\
+			gl_Position = vertex();\n\
+			v_TexCoord = texcoord();\n\
+			v_TexCoord.y = 1.0 - v_TexCoord.y;\n\
+			}";
+			ezgfxGlobals.vSS = new ezgl.SubShader(gl.VERTEX_SHADER, ezgfxGlobals.vSSC0 + "\nvec4 vertex() { return u_Projection * u_View * u_Model * vec4(a_Position, 1.0); }\nvec2 texcoord() { return a_TexCoord; }\n" + ezgfxGlobals.vSSC1, gl);
 			ezgfxGlobals.fSS = new ezgl.SubShader(gl.FRAGMENT_SHADER, ezgfxGlobals.fSSC0 + "\nvec4 shader() { return u_Color; }\n" + ezgfxGlobals.fSSC1, gl),
 				
 			ezgfxGlobals.triangle = [

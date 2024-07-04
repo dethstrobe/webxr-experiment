@@ -77,10 +77,31 @@ async function onSessionStarted(_session) {
     -2.0, 1.0, -10.0, 1.0
   ])
 
+  const lightShader = {
+    vertex: "\n\
+    out float v_Brightness;\n\
+    vec4 vertex() {\
+      \
+      vec3 lightDirection = normalize(vec3(1.0, -1.0, -1.0));\
+      \
+      vec4 worldPoint = u_Model * vec4(a_Position, 1.0);\
+      vec4 worldPointPlusNormal = u_Model * vec4(a_Position + normalize(a_Normal), 1.0);\
+      \
+      v_Brightness = -dot(normalize(worldPointPlusNormal.xyz - worldPoint.xyz), lightDirection);\
+      \
+      return u_Projection * u_View * worldPoint;\
+    }",
+    shader: "\
+    in float v_Brightness;\
+    vec4 shader() {\
+      return vec4(u_Color.rgb * vec3(v_Brightness), 1.0);\
+    }"
+  };
+
   const planeMesh = new ezgfx.Mesh(cx)
   await planeMesh.loadFromOBJ('/plane.obj')
 
-  const planeMaterial = new ezgfx.Material(null, cx)
+  const planeMaterial = new ezgfx.Material(cx, lightShader.vertex, null, lightShader.shader)
   planeMaterial.setProjection(identityMatrix)
   planeMaterial.setView(identityMatrix)
   planeMaterial.setModel(identityMatrix)
@@ -89,7 +110,7 @@ async function onSessionStarted(_session) {
   const cubeMesh = new ezgfx.Mesh(cx)
   await cubeMesh.loadFromOBJ('/cube.obj')
 
-  const cubeMat = new ezgfx.Material(null, cx)
+  const cubeMat = new ezgfx.Material(cx, lightShader.vertex, null, lightShader.shader)
   cubeMat.setProjection(identityMatrix)
   cubeMat.setView(identityMatrix)
   cubeMat.setModel(offsetMatrix)
@@ -98,7 +119,7 @@ async function onSessionStarted(_session) {
   const controllerMesh = new ezgfx.Mesh(cx)
   controllerMesh.loadFromOBJ("/controller.obj")
 
-  const controllerMat = new ezgfx.Material(null, cx)
+  const controllerMat = new ezgfx.Material(cx, lightShader.vertex, null, lightShader.shader)
   controllerMat.setProjection(identityMatrix)
   controllerMat.setView(identityMatrix)
   controllerMat.setModel(identityMatrix)
