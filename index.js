@@ -290,9 +290,9 @@ async function onSessionStarted(_session) {
       if(controllers.left && controllers.right) {
         if(controllers.right.gamepad.buttons[4].pressed) {
           audio1.position = [
-            controllers.right.pos.transform.x,
-            controllers.right.pos.transform.y,
-            controllers.right.pos.transform.z,
+            controllers.right.pose.transform.position.x,
+            controllers.right.pose.transform.position.y,
+            controllers.right.pose.transform.position.z,
           ]
           audio1.play()
         }
